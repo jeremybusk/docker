@@ -1,0 +1,32 @@
+mkdir certs
+mkdir auth
+htpasswd -B auth/htpasswd myusername
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./certs/domain.key -out ./certs/domain.crt -subj "/C=US/ST=Utah/L=SLC/O=Example Corp/OU=Testing/CN=example.io"
+
+registry:
+  restart: always
+  image: registry:2
+  ports:
+    - 5000:5000
+  expose:
+    - "5000"
+  environment:
+    REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
+    REGISTRY_HTTP_TLS_KEY: /certs/domain.key
+    REGISTRY_AUTH: htpasswd
+    REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+    REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+  volumes:
+    - ./data:/var/lib/registry
+    - ./certs:/certs
+    - ./auth:/auth
+    
+    
+# Steps
+docker pull alpine:latest
+docker tag alpine:latest localhost:5000/jtest:latest
+docker login -u myusername https://localhost:5000
+docker push localhost:5000/jtest:latest
+docker pull localhost:5000/jtest:latest
+curl -sk -u myusername:mypass https://10.x.x.x:5000/v2/_catalog | jq
+docker logout https://localhost:5000
